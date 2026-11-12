@@ -1,1 +1,216 @@
-The requested file reference is not currently visible. Use files.search or files.list to rediscover the file, then retry with a returned ref_id or file_id.
+<!DOCTYPE html>
+<html lang="si">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Music Academy Portal</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{--bg:#0b1020;--panel:#141c33;--panel2:#1b2745;--gold:#f4c76b;--muted:#aab4ce;--white:#f7f8fc;--line:#2b3859;--red:#ff7777;--green:#78ddb0}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top right,#26345c 0,#0b1020 42%);font-family:Arial,"Noto Sans Sinhala",sans-serif;color:var(--white);min-height:100vh}
+    .wrap{max-width:1100px;margin:auto;padding:24px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:28px}
+    .brand{display:flex;align-items:center;gap:12px}.logo{width:48px;height:48px;border-radius:15px;background:linear-gradient(135deg,#f4c76b,#b97836);display:grid;place-items:center;color:#18213a;font-size:25px;font-weight:bold}
+    h1{font-size:clamp(22px,4vw,32px);margin:0}.sub{color:var(--muted);margin-top:5px;font-size:14px}
+    .card{background:rgba(20,28,51,.94);border:1px solid var(--line);border-radius:20px;padding:24px;box-shadow:0 18px 50px #0003}
+    .auth{max-width:470px;margin:7vh auto}.tabs{display:flex;gap:8px;margin-bottom:20px}.tab{flex:1}
+    button,.btn{border:0;border-radius:11px;padding:12px 16px;background:var(--gold);color:#172039;font-weight:700;cursor:pointer}
+    button.secondary{background:#283657;color:var(--white);border:1px solid #3a4a70}button.danger{background:#733b4a;color:white}
+    button:disabled{opacity:.55;cursor:not-allowed}input,select{width:100%;padding:13px 14px;border-radius:11px;border:1px solid #3a496b;background:#0e162b;color:white;margin:7px 0 15px;outline:none}
+    label{font-size:13px;color:#c7d0e5} .muted{color:var(--muted)}.hidden{display:none!important}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px}.stat{background:var(--panel2);padding:18px;border-radius:15px;border:1px solid var(--line)}
+    .stat strong{display:block;color:var(--gold);font-size:24px;margin-top:8px}.section{margin-top:22px}.section h2{font-size:19px;margin:0 0 14px}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.row>*{flex:1}.file{padding:16px;background:#101a31;border:1px solid var(--line);border-radius:14px;margin:10px 0}
+    .file h3{margin:0 0 7px;font-size:16px}.tag{font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:.08em}
+    .notice{padding:12px 14px;border-radius:12px;background:#1a2942;color:#d9e3f9;margin:12px 0;font-size:13px;line-height:1.5}
+    .error{color:var(--red)}.ok{color:var(--green)}.right{display:flex;gap:8px;align-items:center}.small{font-size:12px}
+    .empty{text-align:center;color:var(--muted);padding:25px}.player{width:100%;max-height:340px;margin-top:10px}
+    @media(max-width:600px){.wrap{padding:14px}.card{padding:18px}.top{align-items:flex-start}.top .right{flex-direction:column;align-items:flex-end}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><div class="logo">♪</div><div><h1>Music Academy</h1><div class="sub">Student Learning Portal</div></div></div>
+    <div class="right"><span id="userLabel" class="muted small"></span><button id="logoutBtn" class="secondary hidden">Logout</button></div>
+  </header>
+
+  <section id="authView" class="card auth">
+    <h2 style="margin-top:0">ආයුබෝවන්!</h2><p class="muted">ඔබගේ ගිණුමෙන් ඇතුළු වන්න.</p>
+    <div class="tabs"><button id="loginTab" class="tab">Login</button><button id="signupTab" class="tab secondary">Student Sign Up</button></div>
+    <div id="loginForm">
+      <label>Email</label><input id="loginEmail" type="email" placeholder="Email address" autocomplete="username">
+      <label>Password</label><input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password">
+      <button id="loginBtn" style="width:100%">Login</button>
+    </div>
+    <div id="signupForm" class="hidden">
+      <div class="notice">Student ගිණුමක් සාදන විට Email සහ Password භාවිතා කරන්න. ඔබගේ විස්තර පසුව Admin විසින් තහවුරු කළ යුතුය.</div>
+      <label>Email</label><input id="signupEmail" type="email" placeholder="Email address">
+      <label>Password (අවම අක්ෂර 6)</label><input id="signupPassword" type="password" placeholder="Password">
+      <button id="signupBtn" style="width:100%">Create Account</button>
+    </div>
+    <p id="authMsg" class="small"></p>
+  </section>
+
+  <main id="appView" class="hidden">
+    <section id="adminView" class="hidden">
+      <div class="grid">
+        <div class="stat">Account Type<strong>ADMIN</strong></div>
+        <div class="stat">Academy<strong>Content Manager</strong></div>
+        <div class="stat">Storage<strong>Private Files</strong></div>
+      </div>
+      <section class="card section">
+        <h2>Upload Learning Materials</h2>
+        <p class="muted small">Grade එක තෝරා PDF, Audio හෝ Video ගොනුව upload කරන්න.</p>
+        <div class="row">
+          <div><label>Grade</label><select id="uploadGrade"></select></div>
+          <div><label>File type</label><select id="uploadType"><option value="Notes">Notes / PDF</option><option value="Audio">Audio</option><option value="Video">Video</option></select></div>
+        </div>
+        <label>Title</label><input id="uploadTitle" placeholder="උදා: පාඩම 01 - ස්වර">
+        <label>Select file</label><input id="uploadFile" type="file">
+        <button id="uploadBtn">Upload File</button><p id="uploadMsg" class="small"></p>
+      </section>
+      <section class="card section">
+        <h2>Student Profiles</h2>
+        <p class="muted small">දැනට database එකේ ඇති Student profiles මෙහි පෙන්වයි. නව Auth account සෑදීම සඳහා Supabase Authentication → Users භාවිතා කරන්න.</p>
+        <button id="refreshStudents" class="secondary">Refresh Students</button>
+        <div id="studentsList"></div>
+      </section>
+    </section>
+
+    <section id="studentView" class="hidden">
+      <div class="grid">
+        <div class="stat">Student<strong id="studentName">—</strong></div>
+        <div class="stat">Grade<strong id="studentGrade">Pending</strong></div>
+        <div class="stat">Phone<strong id="studentPhone">—</strong></div>
+      </div>
+      <section class="card section">
+        <h2>My Learning Materials</h2>
+        <p class="muted small">ඔබගේ Grade එකට අදාළ Notes, Audio සහ Video පමණක් පෙන්වයි.</p>
+        <div id="materialsList"></div>
+      </section>
+      <section class="card section">
+        <h2>My Profile</h2>
+        <div id="profileNotice" class="notice">Profile එකක් නොමැති නම් Admin අමතන්න.</div>
+      </section>
+    </section>
+  </main>
+  <footer class="muted small" style="text-align:center;margin:30px 0">© Music Academy • Secure Student Portal</footer>
+</div>
+
+<script>
+/* 1) Supabase Dashboard → Project Settings → API → Project URL සහ anon/public key මෙහි දමන්න.
+   service_role key එක කිසිවිටෙක මෙහි දමන්න එපා. */
+const SUPABASE_URL = "https://yapvfrlbrprhwjvzoetl.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_onS-PVTOHLTOUqnbpN2TkA_7jlSQatJ";
+const BUCKET = "music-academy-files";
+const GRADES = ["Kids","Grade-6","Grade-7","Grade-8","Grade-9","Grade-10","O-L","A-L"];
+
+const $ = id => document.getElementById(id);
+let supabaseClient = null;
+let currentUser = null;
+let currentProfile = null;
+let isAdmin = false;
+
+function msg(id,text,kind=""){ const el=$(id); el.textContent=text; el.className="small "+kind; }
+function initClient(){
+  if(!window.supabase){throw new Error("Supabase library load වුණේ නැහැ. Internet connection එක බලන්න.");}
+  if(SUPABASE_ANON_KEY.includes("PASTE_")) throw new Error("HTML එකේ SUPABASE_ANON_KEY එක තවම දාලා නැහැ.");
+  supabaseClient = window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+}
+function fillGrades(){
+  $("uploadGrade").innerHTML=GRADES.map(g=>`<option value="${g}">${g}</option>`).join("");
+}
+function showAuth(){ $("authView").classList.remove("hidden"); $("appView").classList.add("hidden"); $("logoutBtn").classList.add("hidden"); $("userLabel").textContent=""; }
+function showApp(){ $("authView").classList.add("hidden"); $("appView").classList.remove("hidden"); $("logoutBtn").classList.remove("hidden"); $("userLabel").textContent=currentUser.email||""; }
+function safe(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+async function enterApp(){
+  const {data:{session},error}=await supabaseClient.auth.getSession();
+  if(error) throw error;
+  if(!session){showAuth();return;}
+  currentUser=session.user;
+  const adminRes=await supabaseClient.from("admin_users").select("user_id").eq("user_id",currentUser.id).maybeSingle();
+  isAdmin=!!adminRes.data;
+  showApp();
+  if(isAdmin){
+    $("adminView").classList.remove("hidden"); $("studentView").classList.add("hidden");
+    await loadStudents();
+  }else{
+    $("studentView").classList.remove("hidden"); $("adminView").classList.add("hidden");
+    await loadStudentProfile();
+  }
+}
+async function loadStudentProfile(){
+  const {data,error}=await supabaseClient.from("students").select("full_name,email,phone,grade").eq("user_id",currentUser.id).maybeSingle();
+  if(error) throw error;
+  currentProfile=data;
+  if(!data){
+    $("studentName").textContent="Profile Pending"; $("studentGrade").textContent="Pending"; $("studentPhone").textContent="—";
+    $("profileNotice").textContent="ඔබගේ Student profile එක තවම සකසා නැහැ. Admin විසින් නම, දුරකථන අංකය සහ Grade එක එකතු කළ පසු පාඩම් පෙන්වනු ඇත.";
+    $("materialsList").innerHTML='<div class="empty">Profile එක තවම සූදානම් නැහැ.</div>';
+    return;
+  }
+  $("studentName").textContent=data.full_name||"—"; $("studentGrade").textContent=data.grade||"Pending"; $("studentPhone").textContent=data.phone||"—";
+  $("profileNotice").textContent="ඔබගේ profile විස්තර Admin විසින් කළමනාකරණය කරයි.";
+  await loadMaterials(data.grade);
+}
+async function loadMaterials(grade){
+  const root=$("materialsList"); root.innerHTML="";
+  if(!grade){root.innerHTML='<div class="empty">Grade එක තවම ලබාදී නැහැ.</div>';return;}
+  const {data,error}=await supabaseClient.storage.from(BUCKET).list(grade,{limit:100,sortBy:{column:"name",order:"asc"}});
+  if(error) throw error;
+  const files=(data||[]).filter(f=>f.name && !f.name.startsWith("."));
+  if(!files.length){root.innerHTML='<div class="empty">මෙම Grade එකට තවම ගොනු upload කරලා නැහැ.</div>';return;}
+  for(const f of files){
+    const path=`${grade}/${f.name}`;
+    const {data:signed,error:signErr}=await supabaseClient.storage.from(BUCKET).createSignedUrl(path,300);
+    const ext=f.name.split(".").pop().toLowerCase();
+    const type=["mp3","wav","m4a","ogg"].includes(ext)?"Audio":["mp4","webm","mov"].includes(ext)?"Video":"Notes";
+    const div=document.createElement("div");div.className="file";
+    div.innerHTML=`<div class="tag">${type}</div><h3>${safe(f.name)}</h3>`;
+    if(!signErr && signed?.signedUrl){
+      if(type==="Audio") div.innerHTML+=`<audio class="player" controls controlsList="nodownload" src="${signed.signedUrl}"></audio>`;
+      else if(type==="Video") div.innerHTML+=`<video class="player" controls controlsList="nodownload" src="${signed.signedUrl}"></video>`;
+      else div.innerHTML+=`<a class="muted" target="_blank" rel="noopener" href="${signed.signedUrl}">Open PDF / Note</a>`;
+    } else div.innerHTML+='<p class="error small">File එක විවෘත කළ නොහැක.</p>';
+    root.appendChild(div);
+  }
+}
+async function loadStudents(){
+  const root=$("studentsList");root.innerHTML='<p class="muted small">Loading...</p>';
+  const {data,error}=await supabaseClient.from("students").select("user_id,full_name,email,phone,grade").order("full_name");
+  if(error){root.innerHTML=`<p class="error">${safe(error.message)}</p>`;return;}
+  if(!data?.length){root.innerHTML='<div class="empty">තවම Student profiles නැහැ.</div>';return;}
+  root.innerHTML=data.map(s=>`<div class="file"><h3>${safe(s.full_name||"No name")}</h3><div class="muted small">${safe(s.email||"")} • ${safe(s.phone||"")} • ${safe(s.grade||"No grade")}</div><div class="small muted">UID: ${safe(s.user_id)}</div></div>`).join("");
+}
+async function uploadFile(){
+  const grade=$("uploadGrade").value, file=$("uploadFile").files[0], title=$("uploadTitle").value.trim();
+  if(!file){msg("uploadMsg","කරුණාකර file එකක් තෝරන්න.","error");return;}
+  if(file.size>100*1024*1024){msg("uploadMsg","File එක 100 MB ට වඩා විශාලයි. කුඩා file එකක් තෝරන්න.","error");return;}
+  const clean=(title||file.name.replace(/[^\w.\- ]/g,"_")).replace(/[^\w.\- ]/g,"_");
+  const ext=file.name.includes(".")?"."+file.name.split(".").pop():"";
+  const path=`${grade}/${Date.now()}_${clean}${ext}`;
+  $("uploadBtn").disabled=true;msg("uploadMsg","Uploading...");
+  const {error}=await supabaseClient.storage.from(BUCKET).upload(path,file,{cacheControl:"3600",upsert:false,contentType:file.type||undefined});
+  $("uploadBtn").disabled=false;
+  if(error){msg("uploadMsg",error.message,"error");return;}
+  msg("uploadMsg","Upload සාර්ථකයි!","ok");$("uploadFile").value="";$("uploadTitle").value="";
+}
+$("loginTab").onclick=()=>{$("loginForm").classList.remove("hidden");$("signupForm").classList.add("hidden");$("loginTab").classList.remove("secondary");$("signupTab").classList.add("secondary");msg("authMsg","");};
+$("signupTab").onclick=()=>{$("signupForm").classList.remove("hidden");$("loginForm").classList.add("hidden");$("signupTab").classList.remove("secondary");$("loginTab").classList.add("secondary");msg("authMsg","");};
+$("loginBtn").onclick=async()=>{
+  try{initClient();msg("authMsg","Logging in...");const {error}=await supabaseClient.auth.signInWithPassword({email:$("loginEmail").value.trim(),password:$("loginPassword").value});if(error)throw error;await enterApp();}
+  catch(e){msg("authMsg",e.message,"error");}
+};
+$("signupBtn").onclick=async()=>{
+  try{initClient();const email=$("signupEmail").value.trim(),password=$("signupPassword").value;if(password.length<6)throw new Error("Password එක අවම අක්ෂර 6ක් විය යුතුයි.");const {data,error}=await supabaseClient.auth.signUp({email,password});if(error)throw error;msg("authMsg",data.session?"Account එක සෑදුවා. දැන් Login වන්න.":"Account එක සෑදුවා. Email confirmation අවශ්‍ය නම් inbox එක බලන්න.","ok");$("loginTab").click();}
+  catch(e){msg("authMsg",e.message,"error");}
+};
+$("logoutBtn").onclick=async()=>{if(supabaseClient)await supabaseClient.auth.signOut();currentUser=null;showAuth();};
+$("uploadBtn").onclick=async()=>{try{await uploadFile();}catch(e){msg("uploadMsg",e.message,"error");}};
+$("refreshStudents").onclick=loadStudents;
+fillGrades();
+try{initClient();enterApp().catch(e=>{showAuth();msg("authMsg",e.message,"error");});}catch(e){showAuth();msg("authMsg",e.message,"error");}
+</script>
+</body>
+</html>
