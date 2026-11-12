@@ -70,6 +70,16 @@
         <button id="uploadBtn">Upload File</button><p id="uploadMsg" class="small"></p>
       </section>
       <section class="card section">
+        <h2>Add / Update Student Profile</h2>
+        <p class="muted small">Auth Users වලින් Student UID එක දාලා නම, දුරකථන අංකය සහ Grade එක සුරකින්න.</p>
+        <label>Student User ID (UID)</label><input id="profileUid" value="42196d33-cbd9-4ec6-888a-9e280b9b22ea">
+        <label>Student Email</label><input id="profileEmail" type="email" value="smicsooriyanayaka@gmail.com">
+        <label>Full Name</label><input id="profileName" placeholder="Student full name">
+        <label>Phone Number</label><input id="profilePhone" type="tel" placeholder="07XXXXXXXX">
+        <label>Grade</label><select id="profileGrade"></select>
+        <button id="saveProfileBtn">Save Student Profile</button><p id="profileMsg" class="small"></p>
+      </section>
+      <section class="card section">
         <h2>Student Profiles</h2>
         <p class="muted small">දැනට database එකේ ඇති Student profiles මෙහි පෙන්වයි. නව Auth account සෑදීම සඳහා Supabase Authentication → Users භාවිතා කරන්න.</p>
         <button id="refreshStudents" class="secondary">Refresh Students</button>
@@ -118,7 +128,9 @@ function initClient(){
   supabaseClient = window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 }
 function fillGrades(){
-  $("uploadGrade").innerHTML=GRADES.map(g=>`<option value="${g}">${g}</option>`).join("");
+  const options=GRADES.map(g=>`<option value="${g}">${g}</option>`).join("");
+  $("uploadGrade").innerHTML=options;
+  $("profileGrade").innerHTML=options;
 }
 function showAuth(){ $("authView").classList.remove("hidden"); $("appView").classList.add("hidden"); $("logoutBtn").classList.add("hidden"); $("userLabel").textContent=""; }
 function showApp(){ $("authView").classList.add("hidden"); $("appView").classList.remove("hidden"); $("logoutBtn").classList.remove("hidden"); $("userLabel").textContent=currentUser.email||""; }
@@ -183,6 +195,35 @@ async function loadStudents(){
   if(!data?.length){root.innerHTML='<div class="empty">තවම Student profiles නැහැ.</div>';return;}
   root.innerHTML=data.map(s=>`<div class="file"><h3>${safe(s.full_name||"No name")}</h3><div class="muted small">${safe(s.email||"")} • ${safe(s.phone||"")} • ${safe(s.grade||"No grade")}</div><div class="small muted">UID: ${safe(s.user_id)}</div></div>`).join("");
 }
+async function saveStudentProfile(){
+  const user_id=$("profileUid").value.trim();
+  const email=$("profileEmail").value.trim();
+  const full_name=$("profileName").value.trim();
+  const phone=$("profilePhone").value.trim();
+  const grade=$("profileGrade").value;
+  if(!user_id || !email || !full_name || !phone || !grade){
+    msg("profileMsg","සියලු විස්තර පුරවන්න.","error");return;
+  }
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user_id)){
+    msg("profileMsg","Student UID එක නිවැරදි නැහැ.","error");return;
+  }
+  $("saveProfileBtn").disabled=true;msg("profileMsg","Saving...");
+  try{
+    const {data:existing,error:findError}=await supabaseClient.from("students").select("user_id").eq("user_id",user_id).maybeSingle();
+    if(findError) throw findError;
+    let result;
+    if(existing){
+      result=await supabaseClient.from("students").update({full_name,email,phone,grade}).eq("user_id",user_id);
+    }else{
+      result=await supabaseClient.from("students").insert({user_id,full_name,email,phone,grade});
+    }
+    if(result.error) throw result.error;
+    msg("profileMsg","Student profile එක සාර්ථකව සුරැකුණා!","ok");
+    await loadStudents();
+  }catch(e){msg("profileMsg",e.message,"error");}
+  finally{$("saveProfileBtn").disabled=false;}
+}
+
 async function uploadFile(){
   const grade=$("uploadGrade").value, file=$("uploadFile").files[0], title=$("uploadTitle").value.trim();
   if(!file){msg("uploadMsg","කරුණාකර file එකක් තෝරන්න.","error");return;}
@@ -209,6 +250,7 @@ $("signupBtn").onclick=async()=>{
 $("logoutBtn").onclick=async()=>{if(supabaseClient)await supabaseClient.auth.signOut();currentUser=null;showAuth();};
 $("uploadBtn").onclick=async()=>{try{await uploadFile();}catch(e){msg("uploadMsg",e.message,"error");}};
 $("refreshStudents").onclick=loadStudents;
+$("saveProfileBtn").onclick=saveStudentProfile;
 fillGrades();
 try{initClient();enterApp().catch(e=>{showAuth();msg("authMsg",e.message,"error");});}catch(e){showAuth();msg("authMsg",e.message,"error");}
 </script>
