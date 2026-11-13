@@ -193,7 +193,7 @@ async function loadStudents(){
   const {data,error}=await supabaseClient.from("students").select("user_id,full_name,email,phone,grade").order("full_name");
   if(error){root.innerHTML=`<p class="error">${safe(error.message)}</p>`;return;}
   if(!data?.length){root.innerHTML='<div class="empty">තවම Student profiles නැහැ.</div>';return;}
-  root.innerHTML=data.map(s=>`<div class="file"><h3>${safe(s.full_name||"No name")}</h3><div class="muted small">${safe(s.email||"")} • ${safe(s.phone||"")} • ${safe(s.grade||"No grade")}</div><div class="small muted">UID: ${safe(s.user_id)}</div></div>`).join("");
+  root.innerHTML=data.map(s=>`<div class="file"><div class="row"><div><h3>${safe(s.full_name||"No name")}</h3><div class="muted small">${safe(s.email||"")} • ${safe(s.phone||"")} • ${safe(s.grade||"No grade")}</div><div class="small muted">UID: ${safe(s.user_id)}</div></div><button class="danger delete-student-btn" data-user-id="${safe(s.user_id)}" data-student-name="${safe(s.full_name||s.email||"Student")}">Delete Student</button></div></div>`).join("");
 }
 async function saveStudentProfile(){
   const user_id=$("profileUid").value.trim();
@@ -250,6 +250,24 @@ $("signupBtn").onclick=async()=>{
 $("logoutBtn").onclick=async()=>{if(supabaseClient)await supabaseClient.auth.signOut();currentUser=null;showAuth();};
 $("uploadBtn").onclick=async()=>{try{await uploadFile();}catch(e){msg("uploadMsg",e.message,"error");}};
 $("refreshStudents").onclick=loadStudents;
+$("studentsList").addEventListener("click",async(event)=>{
+  const button=event.target.closest(".delete-student-btn");
+  if(!button) return;
+  const userId=button.dataset.userId;
+  const studentName=button.dataset.studentName;
+  if(!confirm(`"${studentName}" ගේ Student profile සහ Login account දෙකම සම්පූර්ණයෙන් ඉවත් කරන්නද? මේ ක්‍රියාව ආපසු හැරවිය නොහැක.`)) return;
+  button.disabled=true; button.textContent="Deleting...";
+  try{
+    const {data,error}=await supabaseClient.functions.invoke("rapid-function",{body:{user_id:userId}});
+    if(error) throw error;
+    if(data?.error) throw new Error(data.error);
+    alert("Student account එක සාර්ථකව ඉවත් කළා.");
+    await loadStudents();
+  }catch(e){
+    alert("ඉවත් කිරීම අසාර්ථකයි: "+e.message+"\nFunction deployment සහ access settings පරීක්ෂා කරන්න.");
+    button.disabled=false; button.textContent="Delete Student";
+  }
+});
 $("saveProfileBtn").onclick=saveStudentProfile;
 fillGrades();
 try{initClient();enterApp().catch(e=>{showAuth();msg("authMsg",e.message,"error");});}catch(e){showAuth();msg("authMsg",e.message,"error");}
