@@ -260,7 +260,7 @@ $("signupBtn").onclick=async()=>{
     const email=$("signupEmail").value.trim(),password=$("signupPassword").value;
     if(!email) throw new Error("Email එක ඇතුළත් කරන්න.");
     if(password.length<6) throw new Error("Password එක අවම අක්ෂර 6ක් විය යුතුයි.");
-    const {data,error}=await supabaseClient.auth.signUp({email,password});
+    const {data,error}=await supabaseClient.auth.signUp({email,password,options:{emailRedirectTo:window.location.origin+window.location.pathname}});
     if(error) throw error;
     $("loginTab").click();
     msg("authMsg",data.session?"Account එක සෑදුවා. දැන් Login වන්න.":"Account එක සෑදුවා. Email confirmation අවශ්‍ය නම් inbox එක බලන්න.","ok");
